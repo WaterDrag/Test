@@ -717,13 +717,10 @@
   function tlTs(d) { return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
   function tlFd(s) { const p = s.split('-'); return p[2] + '.' + p[1] + '.'; }
 
-  function tlWeekStart() {
+function tlWeekStart() {
     const T = new Date(); T.setHours(0,0,0,0);
-    // ZMĚNA 3: posun o 14 dní (2 týdny) místo 7
-    const d = tlAddDate(T, tlWo * 14);
-    const dow = (d.getDay() + 6) % 7;
-    return tlAddDate(d, -dow);
-  }
+    return tlAddDate(T, tlWo * 14);
+}
 
   function tlGetRoomBookings(roomIdx) {
     return (bookings[roomIdx] || [])
