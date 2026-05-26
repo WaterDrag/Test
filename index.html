@@ -24,7 +24,6 @@
   body{font-family:'Lato',sans-serif;background:var(--color-background-secondary); transition: background-color 0.3s;}
   .screen{display:none} .screen.active{display:block}
 
-  /* --- ANIMACE --- */
   @keyframes bgFadeIn { 0% { background: rgba(0,0,0,0); } 100% { background: rgba(0,0,0,0.6); } }
   @keyframes modalPopIn { 0% { opacity: 0; transform: scale(0.9) translateY(15px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
   @keyframes cardSlideUp { 0% { opacity: 0; transform: translateY(20px); } 100% { opacity: 1; transform: translateY(0); } }
@@ -336,9 +335,7 @@
   <div id="miniStats" class="mini-stats-wrap"></div>
   <div class="rooms-grid" id="roomsGrid"></div>
 
-  <!-- =============================================
-       TIMELINE WIDGET — pod seznamem pokojů
-       ============================================= -->
+  <!-- TIMELINE WIDGET -->
   <div class="timeline-wrap" id="timelineWrap" style="display:none;">
     <div class="timeline-section-label">Přehled obsazenosti — Timeline</div>
     <div class="tl-wrap" id="tlMainWrap">
@@ -379,7 +376,7 @@
     </div>
   </div>
 
-  <!-- MODALS (všechny z původního kódu, beze změny) -->
+  <!-- MODALS -->
   <div class="edit-modal-bg" id="shiftBg">
     <div class="edit-modal" style="width: min(450px, 100%)">
       <h3>💼 Moje směna</h3>
@@ -510,6 +507,10 @@
       <label style="margin-top:20px; display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--color-text-primary); text-transform:none;">
         <input type="checkbox" id="editHideDefaultStatus"> Skrýt výchozí tlačítko (Uklizeno/Špinavé)
       </label>
+      <!-- ZMĚNA 3: Nový checkbox pro zobrazení v Timeline -->
+      <label style="margin-top:12px; display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--color-text-primary); text-transform:none; font-weight:400;">
+        <input type="checkbox" id="editShowInTimeline"> Zobrazit ve společném kalendáři (Timeline)
+      </label>
       <label style="margin-top:20px;">Vlastní štítky a odkazy (PINy, návody...)</label>
       <div id="editCustomItemsList" style="margin-bottom:8px;"></div>
       <div style="display:flex; gap:8px;">
@@ -607,9 +608,6 @@
   const MONTHS=['Leden','Únor','Březen','Duben','Květen','Červen','Červenec','Srpen','Září','Říjen','Listopad','Prosinec'];
   const DAYS=['Po','Út','St','Čt','Pá','So','Ne'];
 
-  /* =========================================================================
-   * FIREBASE AUTH
-   * ========================================================================= */
   onAuthStateChanged(auth, async (user) => {
     const errEl = document.getElementById('loginErr');
     if (user) {
@@ -710,12 +708,10 @@
   const TL_BOOKING_COLORS = ['#60A5FA','#FB923C','#84CC16','#F472B6','#FBBF24','#C084FC','#2DD4BF','#F87171'];
   const TL_DAYS_CS = ['Ne','Po','Út','St','Čt','Pá','So'];
   const TL_ND = 14; // počet zobrazených dní
-  let tlWo = 0; // week offset (po 7 dnech)
+  let tlWo = 0; // offset v týdnech (posun po 2 týdnech)
   let tlPend = null;
 
-  // Uložiště přiřazení úklidů: { "roomIdx_gapKey": { staffKey, day } }
-  // Gap key = "fromStr_toStr" (od konce rezervace +1 den do začátku další)
-  let tlCleanings = {}; // lokální — v budoucnu lze uložit do Firebase
+  let tlCleanings = {};
 
   function tlAddDate(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
   function tlTs(d) { return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
@@ -723,19 +719,18 @@
 
   function tlWeekStart() {
     const T = new Date(); T.setHours(0,0,0,0);
-    const d = tlAddDate(T, tlWo * 7);
+    // ZMĚNA 3: posun o 14 dní (2 týdny) místo 7
+    const d = tlAddDate(T, tlWo * 14);
     const dow = (d.getDay() + 6) % 7;
     return tlAddDate(d, -dow);
   }
 
-  // Vrátí seřazené rezervace pro pokoj jako pole { from: Date, to: Date }
   function tlGetRoomBookings(roomIdx) {
     return (bookings[roomIdx] || [])
       .map(b => ({ from: new Date(b.from + 'T00:00:00'), to: new Date(b.to + 'T00:00:00') }))
       .sort((a, b) => a.from - b.from);
   }
 
-  // Vrátí mezery (gapy) mezi rezervacemi pro pokoj
   function tlGetGaps(roomIdx) {
     const T = new Date(); T.setHours(0,0,0,0);
     const rbks = tlGetRoomBookings(roomIdx);
@@ -772,7 +767,6 @@
     delete tlCleanings[roomIdx + '_' + gapKey];
   }
 
-  // Barvy pro staff podle pořadí v authorizedUsers
   const TL_STAFF_COLORS = [
     { bg: '#B5D4F4', fg: '#0C447C' },
     { bg: '#C0DD97', fg: '#27500A' },
@@ -801,9 +795,15 @@
     return tlStaffColor(idx >= 0 ? idx : 0);
   }
 
+  // ZMĚNA 1: Pomocná funkce pro získání iniciál z přezdívky/emailu
+  function tlGetInitials(key) {
+    const user = authorizedUsers[key];
+    const nick = user ? (user.nickname || user.email) : key;
+    return nick.split(/[\s@._]+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+  }
+
   function renderTimeline() {
     if (!currentUser) return;
-    // Skrýt pro owner (nevidí jména) — ale necháme zobrazené, owner vidí jen „Úklid"
     document.getElementById('timelineWrap').style.display = 'block';
 
     const T = new Date(); T.setHours(0,0,0,0);
@@ -827,7 +827,6 @@
       dh.appendChild(el);
     });
 
-    // Legenda
     const isOwner = currentUser.role === 'owner';
     const myKey = tlMyKey();
     const myColor = myKey ? tlStaffColorForKey(myKey) : TL_STAFF_COLORS[0];
@@ -838,7 +837,7 @@
     } else {
       leg.innerHTML = `<div class="tl-li"><div class="tl-ld" style="background:#B5D4F4;"></div>Rezervace</div>
         <div class="tl-li"><div class="tl-ld" style="background:${myColor.bg};border:1px solid ${myColor.fg};"></div>Můj úklid</div>
-        <div class="tl-li"><div class="tl-ld" style="background:#C0DD97;border:1px solid #3B6D11;"></div>Obsazeno jiným</div>
+        <div class="tl-li"><div class="tl-ld" style="background:#C0DD97;border:1px solid #3B6D11;"></div>Obsazeno kolegou</div>
         <div class="tl-li"><div class="tl-ld" style="background:rgba(0,0,0,0); border:1px dashed var(--color-border-tertiary);"></div>Volný termín (klikněte)</div>`;
     }
 
@@ -849,6 +848,9 @@
     const cw = totalW / TL_ND;
 
     rooms.forEach((room, ri) => {
+      // ZMĚNA 3: Přeskočit pokoje, které nemají být v timeline
+      if (room.showInTimeline === false) return;
+
       const row = document.createElement('div');
       row.className = 'tl-trow';
 
@@ -881,7 +883,7 @@
             cls += ' tl-mine';
             cell.addEventListener('click', () => openTlModal(ri, room.name, gap, dstr, 'mine'));
           } else if (isTakenByOther) {
-            cls += ''; // blocked — no hover
+            // ZMĚNA 1: blocked — zobrazíme iniciály v baru, bez klikání
           } else if (!cleaning) {
             cls += ' tl-free';
             cell.addEventListener('click', () => openTlModal(ri, room.name, gap, dstr, 'claim'));
@@ -926,7 +928,10 @@
           const col = tlStaffColorForKey(myKey);
           bg = col.bg; fg = col.fg; label = '🧹 Já';
         } else {
-          bg = '#C0DD97'; fg = '#27500A'; label = '🔒 Obsazeno';
+          // ZMĚNA 1: Zobrazit iniciály kolegy místo "Obsazeno jiným"
+          const initials = tlGetInitials(cleaning.staffKey);
+          const col = tlStaffColorForKey(cleaning.staffKey);
+          bg = col.bg; fg = col.fg; label = '🧹 ' + initials;
         }
 
         const badge = document.createElement('div');
@@ -976,12 +981,13 @@
   }
 
   document.getElementById('tlMc').addEventListener('click', closeTlModal);
-  document.getElementById('tlPw').addEventListener('click', () => { tlWo--; renderTimeline(); });
-  document.getElementById('tlNw').addEventListener('click', () => { tlWo++; renderTimeline(); });
+  // ZMĚNA 2: Posun o 14 dní (2 týdny) místo 7
+  document.getElementById('tlPw').addEventListener('click', () => { tlWo -= 2; renderTimeline(); });
+  document.getElementById('tlNw').addEventListener('click', () => { tlWo += 2; renderTimeline(); });
   window.addEventListener('resize', () => { if (currentUser) renderTimeline(); });
 
   /* =========================================================================
-   * VŠECHNY PŮVODNÍ FUNKCE (beze změny)
+   * PŮVODNÍ FUNKCE
    * ========================================================================= */
   function toggleSettingsMenu(event) {
     event.stopPropagation();
@@ -1311,6 +1317,8 @@
   function openEdit(i) {
     editIdx = i; const isNew = (i === -1);
     document.getElementById('editModalTitle').textContent = isNew ? 'Přidat nový pokoj' : 'Upravit pokoj'; document.getElementById('editName').value = isNew ? '' : rooms[i].name; document.getElementById('editHideDefaultStatus').checked = !isNew && rooms[i].hideDefaultStatus;
+    // ZMĚNA 3: Nastavit checkbox "Zobrazit v Timeline" (výchozí = zaškrtnutý)
+    document.getElementById('editShowInTimeline').checked = isNew ? true : (rooms[i].showInTimeline !== false);
     const curEmoji = isNew ? EMOJIS[0] : rooms[i].emoji; const isCustomEmoji = !EMOJIS.includes(curEmoji);
     document.getElementById('emojiPick').innerHTML = EMOJIS.map(e => `<span class="${(!isCustomEmoji && e===curEmoji)?'sel':''}" onclick="window.selEmoji(this)">${e}</span>`).join('');
     document.getElementById('customEmojiInput').value = isCustomEmoji ? curEmoji : '';
@@ -1331,12 +1339,15 @@
     const pendingPaidName = document.getElementById('newPaidTaskName').value.trim(); if (pendingPaidName) { const pendingPaidPrice = parseFloat(document.getElementById('newPaidTaskPrice').value) || 0; tempPaidTasks.push({ name: pendingPaidName, price: pendingPaidPrice }); }
     const pendingCustomText = document.getElementById('newCustomText').value.trim(); if (pendingCustomText) { const pendingCustomLink = document.getElementById('newCustomLink').value.trim(); tempCustomItems.push({ text: pendingCustomText, link: pendingCustomLink }); }
     const pendingRed = document.getElementById('newCustomStatusRed').value.trim(); if (pendingRed) { const pendingGreen = document.getElementById('newCustomStatusGreen').value.trim(); tempCustomStatuses.push({ textRed: pendingRed, textGreen: pendingGreen || (pendingRed + ' (Hotovo)'), isDone: false }); }
-    const hideDefault = document.getElementById('editHideDefaultStatus').checked; const linkedRooms = Array.from(document.querySelectorAll('.link-cb:checked')).map(cb => parseInt(cb.value));
+    const hideDefault = document.getElementById('editHideDefaultStatus').checked;
+    // ZMĚNA 3: Přečíst hodnotu checkboxu pro Timeline
+    const showInTimeline = document.getElementById('editShowInTimeline').checked;
+    const linkedRooms = Array.from(document.querySelectorAll('.link-cb:checked')).map(cb => parseInt(cb.value));
     const existingPhotos = (editIdx !== -1 && rooms[editIdx].photos) ? rooms[editIdx].photos : [];
     if(name && finalEmoji) {
       const pt = JSON.parse(JSON.stringify(tempPaidTasks)); const ci = JSON.parse(JSON.stringify(tempCustomItems)); const cs = JSON.parse(JSON.stringify(tempCustomStatuses));
-      if(editIdx === -1) { rooms.push({name, emoji: finalEmoji, isDirty: false, linkedRooms, paidTasks: pt, customItems: ci, customStatuses: cs, hideDefaultStatus: hideDefault, photos: existingPhotos});
-      } else { rooms[editIdx] = {name, emoji: finalEmoji, isDirty: rooms[editIdx].isDirty, linkedRooms, paidTasks: pt, customItems: ci, customStatuses: cs, hideDefaultStatus: hideDefault, photos: existingPhotos}; } saveToFirebase();
+      if(editIdx === -1) { rooms.push({name, emoji: finalEmoji, isDirty: false, linkedRooms, paidTasks: pt, customItems: ci, customStatuses: cs, hideDefaultStatus: hideDefault, showInTimeline: showInTimeline, photos: existingPhotos});
+      } else { rooms[editIdx] = {name, emoji: finalEmoji, isDirty: rooms[editIdx].isDirty, linkedRooms, paidTasks: pt, customItems: ci, customStatuses: cs, hideDefaultStatus: hideDefault, showInTimeline: showInTimeline, photos: existingPhotos}; } saveToFirebase();
     } closeEdit();
   }
   function deleteRoom() {
@@ -1465,7 +1476,6 @@
     if (editBookingIdx > -1) { bookings[curRoom][editBookingIdx].from = selStart; bookings[curRoom][editBookingIdx].to = selEnd; bookings[curRoom][editBookingIdx].note = note;
     } else { bookings[curRoom].push({ from: selStart, to: selEnd, note: note, dirtyTriggered: false, addedAt: Date.now() }); }
     saveToFirebase(); closeBookingModal(); renderRoomCalendar(); renderBookings();
-    // Refresh timeline after booking change
     renderTimeline();
   }
   function renderBookings() {
@@ -1515,9 +1525,6 @@
   function viewPhoto(dataUrl) { document.getElementById('photoViewerImg').src = dataUrl; document.getElementById('photoViewerBg').classList.add('open'); }
   function deletePhoto(idx) { if(confirm("Opravdu smazat tuto fotku?")) { rooms[curRoom].photos.splice(idx, 1); saveToFirebase(); renderPhotos(); } }
 
-  /* =========================================================================
-   * EXPORT FUNKCÍ PRO HTML
-   * ========================================================================= */
   window.loginWithEmail = loginWithEmail;
   window.loginWithGoogle = loginWithGoogle;
   window.doLogout = doLogout;
