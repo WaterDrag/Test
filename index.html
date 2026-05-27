@@ -569,6 +569,7 @@
         <option value="staff">Zaměstnanec (Staff)</option>
         <option value="main_staff">Hlavní Staff (Main Staff)</option>
         <option value="admin">Admin</option>
+        <option value="owner">Majitelka (Owner)</option>
       </select>
 
       <div id="permissionsListWrap" style="overflow-y: auto; flex: 1; margin-bottom: 16px; padding-right: 4px;"></div>
@@ -649,7 +650,6 @@ let rolePermissions = {}; // Nataženo z Firebase
 
 window.hasPermission = function(key) {
   if (!currentUser) return false;
-  if (currentUser.role === 'owner') return true; // Majitelka má VŽDY absolutní přístup ke všemu
   if (!rolePermissions || !rolePermissions[currentUser.role]) return false;
   return !!rolePermissions[currentUser.role][key];
 };
