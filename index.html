@@ -256,6 +256,12 @@
   .tl-cbtn { width: 100%; background: none; border: 1px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); padding: 9px; font-size: 13px; color: var(--color-text-secondary); cursor: pointer; font-family: 'Lato', sans-serif; transition: background 0.15s; }
   .tl-cbtn:hover { background: var(--color-background-secondary); }
 
+  /* Nové CSS pro panel oprávnění rolí */
+  .perm-group { margin-bottom: 16px; border: 1px solid var(--color-border-secondary); border-radius: var(--border-radius-md); overflow: hidden; }
+  .perm-group-title { background: var(--color-background-secondary); padding: 10px 14px; font-size: 13px; font-weight: 700; color: var(--color-text-primary); border-bottom: 1px solid var(--color-border-secondary); }
+  .perm-items { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; background: var(--color-background-primary); }
+  .perm-item { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--color-text-primary); cursor: pointer; text-transform: none; font-weight: 400; margin: 0; }
+
   @media (max-width: 640px) {
     .hotel-header { padding-top: 3.5rem; padding-bottom: 1.25rem; }
     .user-info { top: 1.25rem; left: 1rem; transform: none; font-size: 13px; }
@@ -329,13 +335,13 @@
   
   <div id="adminActionsWrap" class="admin-actions-wrap" style="display:none;">
     <button class="add-btn" onclick="openEdit(-1)">+ Přidat nový pokoj</button>
-    <button class="save-note-btn" onclick="openUsersAdmin()">👥 Správa přístupů</button>
+    <button class="save-note-btn" onclick="openUsersAdmin()">👥 Správa uživatelů</button>
+    <button class="save-note-btn" onclick="openRolesAdmin()">🔑 Správa oprávnění</button>
   </div>
 
   <div id="miniStats" class="mini-stats-wrap"></div>
   <div class="rooms-grid" id="roomsGrid"></div>
 
-  <!-- TIMELINE WIDGET -->
   <div class="timeline-wrap" id="timelineWrap" style="display:none;">
     <div class="timeline-section-label">Přehled obsazenosti — Timeline</div>
     <div class="tl-wrap" id="tlMainWrap">
@@ -376,7 +382,6 @@
     </div>
   </div>
 
-  <!-- MODALS -->
   <div class="edit-modal-bg" id="shiftBg">
     <div class="edit-modal" style="width: min(450px, 100%)">
       <h3>💼 Moje směna</h3>
@@ -507,7 +512,6 @@
       <label style="margin-top:20px; display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--color-text-primary); text-transform:none;">
         <input type="checkbox" id="editHideDefaultStatus"> Skrýt výchozí tlačítko (Uklizeno/Špinavé)
       </label>
-      <!-- ZMĚNA 3: Nový checkbox pro zobrazení v Timeline -->
       <label style="margin-top:12px; display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--color-text-primary); text-transform:none; font-weight:400;">
         <input type="checkbox" id="editShowInTimeline"> Zobrazit ve společném kalendáři (Timeline)
       </label>
@@ -556,6 +560,28 @@
       <div class="edit-btns" style="margin-top:1.5rem"><button class="btn-cancel" onclick="closeUsersAdmin()">Zavřít</button></div>
     </div>
   </div>
+
+  <div class="edit-modal-bg" id="rolesAdminBg" style="z-index: 100005;">
+    <div class="edit-modal" style="width: min(650px, 100%); max-height: 90vh; display: flex; flex-direction: column; padding: 1.5rem;">
+      <h3>🔑 Správa oprávnění rolí</h3>
+      <p style="font-size:12px; color:var(--color-text-secondary); margin-bottom:1rem;">Vyberte roli a nastavte jí detailní práva. Změny se projeví uživatelům po jejich dalším načtení stránky.</p>
+      
+      <select id="roleEditSelect" onchange="renderRolePermissions()" style="width: 100%; padding: 12px; margin-bottom: 16px; border-radius: var(--border-radius-md); border: 1px solid var(--color-border-secondary); font-size: 14px; font-weight: bold; background: var(--color-background-secondary); color: var(--color-text-primary); outline: none;">
+        <option value="staff">Zaměstnanec (Staff)</option>
+        <option value="main_staff">Hlavní Staff (Main Staff)</option>
+        <option value="admin">Admin</option>
+        <option value="owner">Majitelka (Owner)</option>
+      </select>
+
+      <div id="permissionsListWrap" style="overflow-y: auto; flex: 1; margin-bottom: 16px; padding-right: 4px;"></div>
+      
+      <div class="edit-btns" style="margin-top: 0;">
+        <button class="btn-save" onclick="saveRolePermissions()">Uložit oprávnění</button>
+        <button class="btn-cancel" onclick="closeRolesAdmin()">Zavřít</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script type="module">
@@ -587,6 +613,43 @@ const ROLE_PERMISSIONS = {
   admin: { role:'admin', label:'Admin', badge:'badge-admin', canEdit:true, canDelete:true, canToggle:true, canSeeStatsPanel:true, canSeeAllStats:false, canLogShift:true },
   owner: { role:'owner', label:'Majitelka', badge:'badge-owner', canEdit:false, canDelete:true, canToggle:true, canSeeStatsPanel:false, canSeeAllStats:false, canLogShift:false }
 };
+
+// ZLATÝ SLOVNÍK VŠECH OPRÁVNĚNÍ
+const PERM_DEFS = {
+  timeline: { title: "1. Společný kalendář (Timeline)", items: [
+    { key: 'tl_view', label: 'Zobrazit widget společného kalendáře' },
+    { key: 'tl_see_names', label: 'Vidět konkrétní jména u úklidů (ostatní vidí jen "Úklid")' },
+    { key: 'tl_claim', label: 'Přihlásit se k volnému úklidu' },
+    { key: 'tl_cancel_own', label: 'Zrušit svůj vlastní úklid' },
+    { key: 'tl_cancel_other', label: 'Zrušit úklid někoho jiného' }
+  ]},
+  rooms: { title: "2. Správa pokojů a úkolů", items: [
+    { key: 'room_toggle_status', label: 'Měnit stav pokojů (Uklizeno/Špinavé a Vlastní stavy)' },
+    { key: 'room_edit', label: 'Upravovat, přidávat a mazat pokoje' },
+    { key: 'task_view', label: 'Zobrazit sekci "Úkoly pro personál"' },
+    { key: 'task_edit', label: 'Přidávat a mazat úkoly pro personál' }
+  ]},
+  bookings: { title: "3. Rezervace a detaily pokoje", items: [
+    { key: 'book_add', label: 'Přidávat nové rezervace' },
+    { key: 'book_edit_del', label: 'Upravovat a mazat existující rezervace' },
+    { key: 'note_view', label: 'Číst poznámky k pokoji' },
+    { key: 'note_edit', label: 'Upravovat poznámky k pokoji' },
+    { key: 'photo_edit', label: 'Přidávat a mazat fotografie pokoje' }
+  ]},
+  stats: { title: "4. Výkazy a peníze", items: [
+    { key: 'shift_log', label: 'Zadávat vlastní odpracované hodiny (tlačítko Moje směna)' },
+    { key: 'stat_view_panel', label: 'Zobrazit panel výkazů a statistik' },
+    { key: 'stat_view_all', label: 'Vidět výkazy a peníze ostatních uživatelů' },
+    { key: 'stat_reset', label: 'Uzavřít měsíc a vynulovat statistiky' }
+  ]},
+  admin: { title: "5. Administrace systému", items: [
+    { key: 'admin_users', label: 'Spravovat uživatele (přidávání, e-maily, sazby)' },
+    { key: 'admin_roles', label: 'Spravovat přístupová práva rolí (tato sekce)' }
+  ]}
+};
+
+let dynamicRoles = {};
+
 const EMOJIS=['🛏️','🏨','🍳','🍽️','☕','🚗','🚲','⛺','🌊','🌿','🔑','🛁','🍾','🌅','🌙','🏔️','🌸','🎋','🦋','🕯️','🍷','🐶','🚿','🔥'];
 const BOOKING_COLORS = ['#60A5FA', '#FB923C', '#84CC16', '#F472B6', '#FBBF24', '#C084FC', '#2DD4BF', '#F87171'];
 const defaultRooms=[{name:'Pokoj 101',emoji:'🛏️', isDirty: false}, {name:'Deluxe Suite',emoji:'🏨', isDirty: false}];
@@ -684,7 +747,6 @@ function startDatabaseListener() {
       shiftData = data.shiftData || {};
       let sdb = data.shiftDataBackups || [];
       shiftDataBackups = Array.isArray(sdb) ? sdb : Object.values(sdb);
-      // Načíst uložené úklidové záznamy z Firebase
       tlCleanings = data.tlCleanings || {};
     } else {
       rooms = [...defaultRooms]; bookings = {}; notes = {}; generalNotes = ''; staffTasks = []; shiftData = {}; shiftDataBackups = {}; tlCleanings = {};
@@ -760,7 +822,6 @@ function tlClearCleaning(key) {
   saveToFirebase();
 }
 
-// Vytvoří unikátní klíč pro úklid — buď gap klíč nebo boundary klíč
 function tlMakeKey(roomIdx, type, identifier) {
   return `${roomIdx}_${type}_${identifier}`;
 }
@@ -857,7 +918,6 @@ function renderTimeline() {
     const rbks = tlGetRoomBookings(ri);
     const gaps = tlGetGaps(ri);
 
-    // Sestavit množinu příjezdů a odjezdů viditelných v tomto rozsahu
     const arrivalDays = new Set();
     const departDays = new Set();
     rbks.forEach((b, bi) => {
@@ -872,7 +932,6 @@ function renderTimeline() {
       const busy = tlIsBusy(dstr, ri);
       const gap = gaps.find(g => tlTs(g.gapStart) <= dstr && tlTs(g.gapEnd) > dstr) || null;
 
-      // Zjistit jestli je den příjezdem nebo odjezdem
       const arrivalEntry = rbks.find((b, bi) => tlTs(b.from) === dstr);
       const departEntry = rbks.find((b, bi) => tlTs(b.to) === dstr);
       const arrivalBi = arrivalEntry ? rbks.indexOf(arrivalEntry) : -1;
@@ -885,7 +944,6 @@ function renderTimeline() {
 
       if (!isOwner) {
         if (!busy && gap) {
-          // Standardní mezera mezi rezervacemi
           const cleanKey = tlMakeKey(ri, 'gap', gap.key);
           const cleaning = tlGetCleaning(cleanKey);
           const isMyGap = cleaning && cleaning.staffKey === myKey;
@@ -900,8 +958,6 @@ function renderTimeline() {
             cell.addEventListener('click', () => openTlModal(ri, room.name, cleanKey, dstr, 'claim'));
           }
         } else if (isBoundary) {
-          // Příjezdový nebo odjezdový den — také klikatelný
-          // Priorita: odjezd (úklid po hostech), pak příjezd
           let boundaryBi = departBi >= 0 ? departBi : arrivalBi;
           let boundaryType = departBi >= 0 ? 'out' : 'in';
           const cleanKey = tlMakeKey(ri, boundaryType, boundaryBi);
@@ -925,7 +981,6 @@ function renderTimeline() {
       cells.appendChild(cell);
     });
 
-    // Bary rezervací
     rbks.forEach((b, bi) => {
       const fromStr = tlTs(b.from);
       const toStr = tlTs(b.to);
@@ -946,7 +1001,6 @@ function renderTimeline() {
       cells.appendChild(bar);
     });
 
-    // Bary úklidů — gap i boundary
     const allKeys = Object.keys(tlCleanings).filter(k => k.startsWith(ri + '_'));
     allKeys.forEach(fullKey => {
       const cleaning = tlCleanings[fullKey];
@@ -983,9 +1037,8 @@ function openTlModal(ri, roomName, cleanKey, dstr, type) {
   tlPend = { ri, roomName, cleanKey, dstr, type };
   document.getElementById('tlMt').textContent = roomName;
 
-  // Popis dne — zjistit jestli jde o příjezd/odjezd
   const parts = cleanKey.split('_');
-  const keyType = parts[1]; // 'gap', 'in', 'out'
+  const keyType = parts[1];
   let dayDesc = tlFd(dstr) + dstr.split('-')[0];
   if (keyType === 'in') dayDesc += ' 🔑 Příjezd';
   else if (keyType === 'out') dayDesc += ' 🚪 Odjezd';
@@ -1464,7 +1517,7 @@ function renderRoomCalendar() {
       if(dayMap[ds].length === 1) style = `background: ${dayMap[ds][0]}; border-color: rgba(0,0,0,0.1);`;
       else style = `background: linear-gradient(135deg, ${dayMap[ds][0]} 50%, ${dayMap[ds][1]} 50%); border-color: rgba(0,0,0,0.1);`;
     }
-    html += `<div class="${cls}" style="${style}">${d}</div>`;
+    html += `<div class="${cls}" style="${style}" onclick="window.bookingCalDayClick('${ds}')">${d}</div>`;
   } g.innerHTML = html;
 }
 function openBookingModal(idx = -1) {
@@ -1566,6 +1619,52 @@ function renderPhotos() {
 function viewPhoto(dataUrl) { document.getElementById('photoViewerImg').src = dataUrl; document.getElementById('photoViewerBg').classList.add('open'); }
 function deletePhoto(idx) { if(confirm("Opravdu smazat tuto fotku?")) { rooms[curRoom].photos.splice(idx, 1); saveToFirebase(); renderPhotos(); } }
 
+/* =========================================================================
+ * SPRÁVA OPRÁVNĚNÍ (RBAC) - FÁZE 1
+ * ========================================================================= */
+function openRolesAdmin() {
+  if (Object.keys(dynamicRoles).length === 0) {
+    dynamicRoles = { staff: {}, main_staff: {}, admin: {}, owner: {} };
+  }
+  document.getElementById('rolesAdminBg').classList.add('open');
+  window.renderRolePermissions();
+}
+
+function closeRolesAdmin() {
+  document.getElementById('rolesAdminBg').classList.remove('open');
+}
+
+function renderRolePermissions() {
+  const roleKey = document.getElementById('roleEditSelect').value;
+  const currentRolePerms = dynamicRoles[roleKey] || {};
+  const wrap = document.getElementById('permissionsListWrap');
+  let html = '';
+
+  for (const groupKey in PERM_DEFS) {
+    const group = PERM_DEFS[groupKey];
+    html += `<div class="perm-group"><div class="perm-group-title">${group.title}</div><div class="perm-items">`;
+    group.items.forEach(item => {
+      const isChecked = currentRolePerms[item.key] === true ? 'checked' : '';
+      html += `<label class="perm-item"><input type="checkbox" id="perm_${item.key}" ${isChecked}> ${item.label}</label>`;
+    });
+    html += `</div></div>`;
+  }
+  wrap.innerHTML = html;
+}
+
+function saveRolePermissions() {
+  const roleKey = document.getElementById('roleEditSelect').value;
+  if (!dynamicRoles[roleKey]) dynamicRoles[roleKey] = {};
+  
+  for (const groupKey in PERM_DEFS) {
+    PERM_DEFS[groupKey].items.forEach(item => {
+      const cb = document.getElementById('perm_' + item.key);
+      if (cb) dynamicRoles[roleKey][item.key] = cb.checked;
+    });
+  }
+  alert('Uloženo do paměti! V další fázi to napojíme na Firebase.');
+}
+
 window.loginWithEmail = loginWithEmail;
 window.loginWithGoogle = loginWithGoogle;
 window.doLogout = doLogout;
@@ -1621,6 +1720,11 @@ window.renderStatsPanel = renderStatsPanel;
 window.toggleSettingsMenu = toggleSettingsMenu;
 window.toggleTheme = toggleTheme;
 window.autoResize = autoResize;
+// Nové exporty
+window.openRolesAdmin = openRolesAdmin;
+window.closeRolesAdmin = closeRolesAdmin;
+window.renderRolePermissions = renderRolePermissions;
+window.saveRolePermissions = saveRolePermissions;
 
 if (document.getElementById('loginPass')) document.getElementById('loginPass').addEventListener('keydown', function(e) { if(e.key === 'Enter') loginWithEmail(); });
 if (document.getElementById('loginEmail')) document.getElementById('loginEmail').addEventListener('keydown', function(e) { if(e.key === 'Enter') document.getElementById('loginPass').focus(); });
@@ -1628,6 +1732,8 @@ if (document.getElementById('modalBg')) document.getElementById('modalBg').addEv
 if (document.getElementById('editBg')) document.getElementById('editBg').addEventListener('click', function(e) { if(e.target === this) closeEdit(); });
 if (document.getElementById('usersAdminBg')) document.getElementById('usersAdminBg').addEventListener('click', function(e) { if(e.target === this) closeUsersAdmin(); });
 if (document.getElementById('statsModalBg')) document.getElementById('statsModalBg').addEventListener('click', function(e) { if(e.target === this) closeStatsModal(); });
+// Přidán event pro nové okno
+if (document.getElementById('rolesAdminBg')) document.getElementById('rolesAdminBg').addEventListener('click', function(e) { if(e.target === this) closeRolesAdmin(); });
 </script>
 </body>
 </html>
