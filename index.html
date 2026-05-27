@@ -347,9 +347,9 @@
     <div class="timeline-section-label">Přehled obsazenosti — Timeline</div>
     <div class="tl-wrap" id="tlMainWrap">
       <div class="tl-topbar">
-        <button class="tl-navbtn" id="tlPw">‹</button>
+        <button class="tl-navbtn" id="tlPw" onclick="window.tlChangeWeek(-1)">‹</button>
         <span class="tl-wlabel" id="tlWl"></span>
-        <button class="tl-navbtn" id="tlNw">›</button>
+        <button class="tl-navbtn" id="tlNw" onclick="window.tlChangeWeek(1)">›</button>
       </div>
       <div class="tl-thead"><div class="tl-rcol">Pokoj</div><div id="tlDh" style="flex:1;display:flex;"></div></div>
       <div id="tlTb"></div>
@@ -359,7 +359,7 @@
           <div class="tl-mtitle" id="tlMt"></div>
           <div class="tl-msub" id="tlMs"></div>
           <div id="tlMst"></div>
-          <button class="tl-cbtn" id="tlMc">Zrušit</button>
+          <button class="tl-cbtn" id="tlMc" onclick="window.closeTlModal()">Zrušit</button>
         </div>
       </div>
     </div>
@@ -610,7 +610,6 @@ const auth = getAuth(app);
 const messaging = getMessaging(app);
 const googleProvider = new GoogleAuthProvider();
 
-// Ponecháváme pouze pro vizuální odlišení v tabulkách (názvy a barvy štítků). Logiku řídí Firebase.
 const ROLE_DEF = {
   staff: { role:'staff', label:'Zaměstnanec', badge:'badge-staff' },
   main_staff: { role:'main_staff', label:'Hlavní Staff', badge:'badge-admin' },
@@ -650,7 +649,7 @@ const PERM_DEFS = {
   ]}
 };
 
-let rolePermissions = {}; // Nataženo z Firebase
+let rolePermissions = {}; 
 
 window.hasPermission = function(key) {
   if (!currentUser) return false;
@@ -807,15 +806,15 @@ let tlWo = 0;
 let tlPend = null;
 let tlCleanings = {};
 
-function tlAddDate(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
-function tlTs(d) { return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
-function tlFd(s) { const p = s.split('-'); return p[2] + '.' + p[1] + '.'; }
+window.tlAddDate = (d, n) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
+window.tlTs = (d) => { return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); };
+window.tlFd = (s) => { const p = s.split('-'); return p[2] + '.' + p[1] + '.'; };
 
 function tlWeekStart() {
   const T = new Date(); T.setHours(0,0,0,0);
-  const d = tlAddDate(T, tlWo * 7);
+  const d = window.tlAddDate(T, tlWo * 7);
   const dow = (d.getDay() + 6) % 7;
-  return tlAddDate(d, -dow);
+  return window.tlAddDate(d, -dow);
 }
 
 function tlGetRoomBookings(roomIdx) {
@@ -826,8 +825,8 @@ function tlGetRoomBookings(roomIdx) {
 
 function tlIsBusy(dstr, roomIdx) { return (bookings[roomIdx] || []).some(b => b.from <= dstr && b.to >= dstr); }
 function tlGetCleaning(key) { return tlCleanings[key] || null; }
-function tlSetCleaning(key, staffKey, day) { tlCleanings[key] = { staffKey, day }; window.saveToFirebase(); }
-function tlClearCleaning(key) { delete tlCleanings[key]; window.saveToFirebase(); }
+window.tlSetCleaning = (key, staffKey, day) => { tlCleanings[key] = { staffKey, day }; window.saveToFirebase(); };
+window.tlClearCleaning = (key) => { delete tlCleanings[key]; window.saveToFirebase(); };
 
 const TL_STAFF_COLORS = [
   { bg: '#B5D4F4', fg: '#0C447C' }, { bg: '#C0DD97', fg: '#27500A' }, { bg: '#F4C0D1', fg: '#72243E' },
@@ -835,7 +834,7 @@ const TL_STAFF_COLORS = [
 ];
 
 function tlStaffColor(idx) { return TL_STAFF_COLORS[idx % TL_STAFF_COLORS.length]; }
-function tlMyKey() { return currentUser ? currentUser.email.replace(/\./g, '_') : null; }
+window.tlMyKey = () => { return currentUser ? currentUser.email.replace(/\./g, '_') : null; };
 function tlStaffColorForKey(key) {
   const keys = Object.keys(authorizedUsers).filter(k => ROLE_DEF[authorizedUsers[k].role] && authorizedUsers[k].role !== 'owner');
   const idx = keys.indexOf(key);
@@ -855,10 +854,10 @@ window.renderTimeline = () => {
   document.getElementById('timelineWrap').style.display = 'block';
 
   const T = new Date(); T.setHours(0,0,0,0);
-  const todStr = tlTs(T);
+  const todStr = window.tlTs(T);
   const start = tlWeekStart();
-  const days = Array.from({ length: TL_ND }, (_, i) => tlAddDate(start, i));
-  const dSt = days.map(tlTs);
+  const days = Array.from({ length: TL_ND }, (_, i) => window.tlAddDate(start, i));
+  const dSt = days.map(window.tlTs);
 
   document.getElementById('tlWl').textContent =
     days[0].getDate() + '.' + (days[0].getMonth()+1) + '. – ' + days[TL_ND-1].getDate() + '.' + (days[TL_ND-1].getMonth()+1) + '. ' + days[TL_ND-1].getFullYear();
@@ -866,12 +865,12 @@ window.renderTimeline = () => {
   const dh = document.getElementById('tlDh'); dh.innerHTML = '';
   days.forEach(d => {
     const el = document.createElement('div');
-    el.className = 'tl-dhdr' + (tlTs(d) === todStr ? ' today' : '');
+    el.className = 'tl-dhdr' + (window.tlTs(d) === todStr ? ' today' : '');
     el.textContent = TL_DAYS_CS[d.getDay()] + ' ' + d.getDate();
     dh.appendChild(el);
   });
 
-  const myKey = tlMyKey();
+  const myKey = window.tlMyKey();
   const myColor = myKey ? tlStaffColorForKey(myKey) : TL_STAFF_COLORS[0];
   const canSeeNames = window.hasPermission('tl_see_names');
   const canClaim = window.hasPermission('tl_claim');
@@ -903,12 +902,11 @@ window.renderTimeline = () => {
 
     days.forEach((d, ci) => {
       const dstr = dSt[ci];
-      const isMidStay  = rbks.some(b => tlTs(b.from) < dstr && tlTs(b.to) > dstr);
+      const isMidStay  = rbks.some(b => window.tlTs(b.from) < dstr && window.tlTs(b.to) > dstr);
 
       const cell = document.createElement('div');
       let cls = 'tl-tcell' + (dstr === todStr ? ' today-col' : '');
 
-      // Upravený čistý klíč: ID_pokoje + Datum
       const cleanKey = ri + '_' + dstr;
       const cleaning = tlGetCleaning(cleanKey);
 
@@ -919,11 +917,11 @@ window.renderTimeline = () => {
         if (isMyCleaning) {
           cls += ' tl-mine';
           cell.addEventListener('click', () => window.openTlModal(ri, room.name, cleanKey, dstr, 'mine'));
-        } else if (!cleaning && canClaim) {
+        } else if (!isTakenByOther && canClaim) {
           cls += ' tl-free';
           cell.addEventListener('click', () => window.openTlModal(ri, room.name, cleanKey, dstr, 'claim'));
-        } else if (cleaning && window.hasPermission('tl_cancel_other')) {
-          cls += ' tl-mine'; // Umožní kliknout na cizí a smazat to
+        } else if (isTakenByOther && window.hasPermission('tl_cancel_other')) {
+          cls += ' tl-mine'; // Umožní kliknout na cizí
           cell.addEventListener('click', () => window.openTlModal(ri, room.name, cleanKey, dstr, 'mine'));
         }
       }
@@ -933,7 +931,7 @@ window.renderTimeline = () => {
     });
 
     rbks.forEach((b, bi) => {
-      const fromStr = tlTs(b.from); const toStr = tlTs(b.to);
+      const fromStr = window.tlTs(b.from); const toStr = window.tlTs(b.to);
       const si = dSt.indexOf(fromStr); const ei = dSt.indexOf(toStr);
       if (si === -1 && ei === -1 && (fromStr > dSt[TL_ND-1] || toStr < dSt[0])) return;
       
@@ -963,9 +961,8 @@ window.renderTimeline = () => {
       const bar = document.createElement('div');
       const booking = (bookings[ri] || [])[bi];
       const noteTxt = booking && booking.note ? ' · ' + booking.note : '';
-      const lbl2 = (si === -1 ? '← ' : '') + tlFd(fromStr) + '→' + tlFd(toStr) + (ei === -1 ? ' →' : '') + noteTxt;
+      const lbl2 = (si === -1 ? '← ' : '') + window.tlFd(fromStr) + '→' + window.tlFd(toStr) + (ei === -1 ? ' →' : '') + noteTxt;
       
-      // Lišta pro rezervace je posunutá nahoru, kroužek úklidu dolů
       bar.style.cssText = `position:absolute;top:6px;left:${leftPx}px;width:${barWidth}px;height:24px;border-radius:4px;display:flex;align-items:center;padding:0 6px;font-size:11px;font-weight:700;z-index:2;white-space:nowrap;overflow:hidden;pointer-events:none;background:${color};color:#18181b;box-shadow:0 1px 2px rgba(0,0,0,0.1);`;
       bar.textContent = lbl2;
       bar.title = lbl2;
@@ -991,7 +988,6 @@ window.renderTimeline = () => {
       }
       
       const badge = document.createElement('div');
-      // Kolečko úklidu je dole a uprostřed dne
       badge.style.cssText = `position:absolute;bottom:4px;left:${ci*cw + cw/2}px;transform:translateX(-50%);width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;z-index:4;pointer-events:none;background:${bg};color:${fg};border:1px solid ${fg};box-shadow:0 1px 3px rgba(0,0,0,0.2);`;
       badge.textContent = label;
       cells.appendChild(badge);
@@ -1005,10 +1001,10 @@ window.openTlModal = (ri, roomName, cleanKey, dstr, type) => {
   document.getElementById('tlMt').textContent = roomName;
 
   const rbks = tlGetRoomBookings(ri);
-  const isCheckout = rbks.some(b => tlTs(b.to) === dstr);
-  const isCheckin  = rbks.some(b => tlTs(b.from) === dstr);
+  const isCheckout = rbks.some(b => window.tlTs(b.to) === dstr);
+  const isCheckin  = rbks.some(b => window.tlTs(b.from) === dstr);
 
-  let dayDesc = tlFd(dstr) + dstr.split('-')[0];
+  let dayDesc = window.tlFd(dstr) + dstr.split('-')[0];
   if (isCheckout && isCheckin) dayDesc += ' 🚪 Odjezd i 🔑 Příjezd';
   else if (isCheckout) dayDesc += ' 🚪 Odjezd';
   else if (isCheckin) dayDesc += ' 🔑 Příjezd';
@@ -1020,14 +1016,14 @@ window.openTlModal = (ri, roomName, cleanKey, dstr, type) => {
 
   if (type === 'claim' && window.hasPermission('tl_claim')) {
     const btn = document.createElement('button'); btn.className = 'tl-mbtn confirm'; btn.textContent = '✓ Přihlásit se k úklidu';
-    btn.addEventListener('click', () => { tlSetCleaning(tlPend.cleanKey, tlMyKey(), tlPend.dstr); window.closeTlModal(); window.renderTimeline(); });
+    btn.addEventListener('click', () => { window.tlSetCleaning(tlPend.cleanKey, window.tlMyKey(), tlPend.dstr); window.closeTlModal(); window.renderTimeline(); });
     mst.appendChild(btn);
   } else if (type === 'mine') {
     const cleaning = tlGetCleaning(cleanKey);
-    const isMine = cleaning && cleaning.staffKey === tlMyKey();
+    const isMine = cleaning && cleaning.staffKey === window.tlMyKey();
     if ((isMine && window.hasPermission('tl_cancel_own')) || (!isMine && window.hasPermission('tl_cancel_other'))) {
         const btn = document.createElement('button'); btn.className = 'tl-mbtn remove'; btn.textContent = '✕ Odhlásit z úklidu';
-        btn.addEventListener('click', () => { tlClearCleaning(tlPend.cleanKey); window.closeTlModal(); window.renderTimeline(); });
+        btn.addEventListener('click', () => { window.tlClearCleaning(tlPend.cleanKey); window.closeTlModal(); window.renderTimeline(); });
         mst.appendChild(btn);
     } else {
         mst.innerHTML = '<div style="font-size:13px; color:var(--color-text-danger); text-align:center; padding:10px;">Nemáte oprávnění mazat tento úklid.</div>';
@@ -1588,7 +1584,7 @@ window.renderPhotos = () => {
 window.viewPhoto = (dataUrl) => { document.getElementById('photoViewerImg').src = dataUrl; document.getElementById('photoViewerBg').classList.add('open'); };
 window.deletePhoto = (idx) => { if(confirm("Opravdu smazat tuto fotku?")) { rooms[curRoom].photos.splice(idx, 1); window.saveToFirebase(); window.renderPhotos(); } };
 
-if (document.getElementById('loginPass')) document.getElementById('loginPass').addEventListener('keydown', function(e) { if(e.key === 'Enter') loginWithEmail(); });
+if (document.getElementById('loginPass')) document.getElementById('loginPass').addEventListener('keydown', function(e) { if(e.key === 'Enter') window.loginWithEmail(); });
 if (document.getElementById('loginEmail')) document.getElementById('loginEmail').addEventListener('keydown', function(e) { if(e.key === 'Enter') document.getElementById('loginPass').focus(); });
 if (document.getElementById('modalBg')) document.getElementById('modalBg').addEventListener('click', function(e) { if(e.target === this) window.closeModal(); });
 if (document.getElementById('editBg')) document.getElementById('editBg').addEventListener('click', function(e) { if(e.target === this) window.closeEdit(); });
