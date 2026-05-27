@@ -123,21 +123,22 @@
   .tl-tcell.tl-free:hover { background: rgba(250,238,218,.5); cursor: pointer; }
   body.dark-mode .tl-tcell.tl-free:hover { background: rgba(120,80,20,.2); }
   .tl-tcell.tl-mine:hover { background: rgba(192,221,151,.3); cursor: pointer; }
+  body.dark-mode .tl-tcell.tl-mine:hover { background: rgba(192,221,151,.15); }
   .tl-legend { display: flex; gap: 12px; flex-wrap: wrap; padding: 8px 14px; border-top: 1px solid var(--color-border-tertiary); background: var(--color-background-secondary); }
   .tl-li { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--color-text-secondary); }
   .tl-ld { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
-  .tl-overlay { display: none; position: absolute; inset: 0; background: rgba(0,0,0,.45); border-radius: var(--border-radius-lg); z-index: 100; }
-  .tl-overlay.open { display: flex; align-items: center; justify-content: center; }
-  .tl-modal { background: var(--color-background-primary); border-radius: var(--border-radius-lg); padding: 20px; width: 280px; border: 1px solid var(--color-border-tertiary); }
-  .tl-mtitle { font-size: 15px; font-weight: 700; color: var(--color-text-primary); margin-bottom: 3px; font-family: 'Playfair Display', serif; }
-  .tl-msub { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 16px; }
-  .tl-mbtn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; border-radius: var(--border-radius-md); padding: 10px; font-size: 13px; font-weight: 700; cursor: pointer; margin-bottom: 8px; font-family: 'Lato', sans-serif; transition: transform 0.1s, background 0.2s; }
+  .tl-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 100000; align-items: center; justify-content: center; padding: 1rem; }
+  .tl-overlay.open { display: flex; animation: bgFadeIn 0.2s ease-out forwards; }
+  .tl-modal { background: var(--color-background-primary); border-radius: var(--border-radius-xl); padding: 24px; width: min(320px, 100%); border: 1px solid var(--color-border-tertiary); box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); opacity: 0; }
+  .tl-overlay.open .tl-modal { animation: modalPopIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.15) forwards; }
+  .tl-mtitle { font-size: 18px; font-weight: 700; color: var(--color-text-primary); margin-bottom: 4px; font-family: 'Playfair Display', serif; }
+  .tl-msub { font-size: 13px; color: var(--color-text-secondary); margin-bottom: 18px; }
+  .tl-mbtn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; border-radius: var(--border-radius-md); padding: 12px; font-size: 14px; font-weight: 700; cursor: pointer; margin-bottom: 8px; font-family: 'Lato', sans-serif; transition: transform 0.1s, background 0.2s; }
   .tl-mbtn:active { transform: scale(0.96); }
-  .tl-mbtn.confirm { background: #C0DD97; border: 1px solid #3B6D11; color: #27500A; }
-  .tl-mbtn.confirm:hover { background: #B0CD87; }
-  .tl-mbtn.remove { background: none; border: 1px solid #E24B4A; color: #A32D2D; }
-  .tl-mbtn.remove:hover { background: #FCEBEB; }
-  .tl-cbtn { width: 100%; background: none; border: 1px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); padding: 9px; font-size: 13px; color: var(--color-text-secondary); cursor: pointer; font-family: 'Lato', sans-serif; transition: background 0.15s; }
+  .tl-mbtn.confirm { background: #DCFCE7; border: 1px solid #166534; color: #14532D; }
+  body.dark-mode .tl-mbtn.confirm { background: #064e3b; border-color: #34d399; color: #34d399; }
+  .tl-mbtn.remove { background: var(--color-background-secondary); border: 1px solid var(--color-text-danger); color: var(--color-text-danger); }
+  .tl-cbtn { width: 100%; background: var(--color-background-primary); border: 1px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); padding: 10px; font-size: 13px; font-weight: 700; color: var(--color-text-primary); cursor: pointer; font-family: 'Lato', sans-serif; transition: background 0.15s; }
   .tl-cbtn:hover { background: var(--color-background-secondary); }
 
   /* Zbytek aplikací */
@@ -708,8 +709,8 @@ onAuthStateChanged(auth, async (user) => {
         autoRefreshInterval = setInterval(() => {
           autoDirtyCheck();
           if (document.getElementById('screenApp').classList.contains('active')) {
-            renderRooms();
-            renderTimeline();
+            window.renderRooms();
+            window.renderTimeline();
             if(document.getElementById('modalBg').classList.contains('open') && curRoom !== -1) {
               window.updateStatusBtn();
             }
@@ -729,7 +730,6 @@ onAuthStateChanged(auth, async (user) => {
 
 function applyUIPermissions() {
   if(!currentUser) return;
-  // Zobrazování na hlavní ploše podle práv
   document.getElementById('myShiftBtn').style.display = window.hasPermission('shift_log') ? 'inline-block' : 'none';
   document.getElementById('topStatsBtn').style.display = window.hasPermission('stat_view_panel') ? 'flex' : 'none';
   document.getElementById('menuActionsWrap').style.display = 'flex';
@@ -770,7 +770,7 @@ function startDatabaseListener() {
       let sdb = data.shiftDataBackups || [];
       shiftDataBackups = Array.isArray(sdb) ? sdb : Object.values(sdb);
       tlCleanings = data.tlCleanings || {};
-      rolePermissions = data.rolePermissions || {}; // Zásadní - nahrání oprávnění
+      rolePermissions = data.rolePermissions || {};
     } else {
       rooms = [...defaultRooms]; bookings = {}; notes = {}; generalNotes = ''; staffTasks = []; shiftData = {}; shiftDataBackups = {}; tlCleanings = {}; rolePermissions = {};
     }
@@ -781,7 +781,7 @@ function startDatabaseListener() {
       if (!isGenNoteFocused) document.getElementById('generalNotes').value = generalNotes; 
       window.autoResize(document.getElementById('generalNotes'));
       
-      renderRooms(); window.renderMiniStats(); window.renderStaffTasks(); renderTimeline();
+      window.renderRooms(); window.renderMiniStats(); window.renderStaffTasks(); window.renderTimeline();
       window.checkAndShowNewBookings();
       if(document.getElementById('usersAdminBg').classList.contains('open')) { window.renderUsersAdmin(); }
       if(document.getElementById('rolesAdminBg').classList.contains('open')) { window.renderRolePermissions(); }
@@ -810,7 +810,9 @@ function tlFd(s) { const p = s.split('-'); return p[2] + '.' + p[1] + '.'; }
 
 function tlWeekStart() {
   const T = new Date(); T.setHours(0,0,0,0);
-  return tlAddDate(T, tlWo * 14);
+  const d = tlAddDate(T, tlWo * 7);
+  const dow = (d.getDay() + 6) % 7;
+  return tlAddDate(d, -dow);
 }
 
 function tlGetRoomBookings(roomIdx) {
@@ -819,26 +821,10 @@ function tlGetRoomBookings(roomIdx) {
     .sort((a, b) => a.from - b.from);
 }
 
-function tlGetGaps(roomIdx) {
-  const rbks = tlGetRoomBookings(roomIdx);
-  const gaps = [];
-  rbks.forEach((cur, i) => {
-    const next = rbks[i + 1] || null;
-    const gapStart = tlAddDate(cur.to, 1);
-    const gapEnd = next ? new Date(next.from) : tlAddDate(cur.to, 60);
-    if (gapStart < gapEnd) {
-      const key = tlTs(cur.to) + '_' + (next ? tlTs(next.from) : 'open');
-      gaps.push({ key, gapStart, gapEnd });
-    }
-  });
-  return gaps;
-}
-
 function tlIsBusy(dstr, roomIdx) { return (bookings[roomIdx] || []).some(b => b.from <= dstr && b.to >= dstr); }
 function tlGetCleaning(key) { return tlCleanings[key] || null; }
 function tlSetCleaning(key, staffKey, day) { tlCleanings[key] = { staffKey, day }; window.saveToFirebase(); }
 function tlClearCleaning(key) { delete tlCleanings[key]; window.saveToFirebase(); }
-function tlMakeKey(roomIdx, type, identifier) { return `${roomIdx}_${type}_${identifier}`; }
 
 const TL_STAFF_COLORS = [
   { bg: '#B5D4F4', fg: '#0C447C' }, { bg: '#C0DD97', fg: '#27500A' }, { bg: '#F4C0D1', fg: '#72243E' },
@@ -847,11 +833,6 @@ const TL_STAFF_COLORS = [
 
 function tlStaffColor(idx) { return TL_STAFF_COLORS[idx % TL_STAFF_COLORS.length]; }
 function tlMyKey() { return currentUser ? currentUser.email.replace(/\./g, '_') : null; }
-function tlMyNick() {
-  if (!currentUser) return '';
-  const key = tlMyKey();
-  return (authorizedUsers[key] && authorizedUsers[key].nickname) ? authorizedUsers[key].nickname : currentUser.label || currentUser.role;
-}
 function tlStaffColorForKey(key) {
   const keys = Object.keys(authorizedUsers).filter(k => ROLE_DEF[authorizedUsers[k].role] && authorizedUsers[k].role !== 'owner');
   const idx = keys.indexOf(key);
@@ -862,7 +843,7 @@ function tlGetInitials(key) {
   return nick.split(/[\s@._]+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
 }
 
-function renderTimeline() {
+window.renderTimeline = () => {
   if (!currentUser) return;
   if (!window.hasPermission('tl_view')) {
       document.getElementById('timelineWrap').style.display = 'none';
@@ -894,11 +875,11 @@ function renderTimeline() {
 
   const leg = document.getElementById('tlLeg');
   if (!canSeeNames && !canClaim) {
-    leg.innerHTML = `<div class="tl-li"><div class="tl-ld" style="background:#B5D4F4;"></div>Rezervace</div><div class="tl-li"><div class="tl-ld" style="background:#C0DD97;border:1px solid #3B6D11;"></div>Úklid naplánován</div>`;
+    leg.innerHTML = `<div class="tl-li"><div class="tl-ld" style="background:#B5D4F4;"></div>Rezervace</div><div class="tl-li"><div class="tl-ld" style="background:#C0DD97;border:1px solid #3B6D11; border-radius:50%;"></div>Úklid naplánován</div>`;
   } else {
     leg.innerHTML = `<div class="tl-li"><div class="tl-ld" style="background:#B5D4F4;"></div>Rezervace</div>
-      <div class="tl-li"><div class="tl-ld" style="background:${myColor.bg};border:1px solid ${myColor.fg};"></div>Můj úklid</div>
-      <div class="tl-li"><div class="tl-ld" style="background:#C0DD97;border:1px solid #3B6D11;"></div>Obsazeno ${canSeeNames ? 'kolegou' : 'jiným'}</div>
+      <div class="tl-li"><div class="tl-ld" style="background:${myColor.bg};border:1px solid ${myColor.fg}; border-radius:50%;"></div>Můj úklid</div>
+      <div class="tl-li"><div class="tl-ld" style="background:#C0DD97;border:1px solid #3B6D11; border-radius:50%;"></div>Obsazeno ${canSeeNames ? 'kolegou' : 'jiným'}</div>
       ${canClaim ? `<div class="tl-li"><div class="tl-ld" style="background:rgba(0,0,0,0); border:1px dashed var(--color-border-tertiary);"></div>Volný termín (klikněte)</div>` : ''}`;
   }
 
@@ -916,57 +897,33 @@ function renderTimeline() {
 
     const cells = document.createElement('div'); cells.className = 'tl-tcells';
     const rbks = tlGetRoomBookings(ri);
-    const gaps = tlGetGaps(ri);
 
     days.forEach((d, ci) => {
       const dstr = dSt[ci];
-      const busy = tlIsBusy(dstr, ri);
-      const gap = gaps.find(g => tlTs(g.gapStart) <= dstr && tlTs(g.gapEnd) > dstr) || null;
-      const arrivalEntry = rbks.find((b, bi) => tlTs(b.from) === dstr);
-      const departEntry = rbks.find((b, bi) => tlTs(b.to) === dstr);
-      const arrivalBi = arrivalEntry ? rbks.indexOf(arrivalEntry) : -1;
-      const departBi = departEntry ? rbks.indexOf(departEntry) : -1;
-      const isBoundary = arrivalEntry !== undefined || departEntry !== undefined;
+      const isMidStay  = rbks.some(b => tlTs(b.from) < dstr && tlTs(b.to) > dstr);
 
       const cell = document.createElement('div');
       let cls = 'tl-tcell' + (dstr === todStr ? ' today-col' : '');
 
-      if (!busy && gap) {
-        const cleanKey = tlMakeKey(ri, 'gap', gap.key);
-        const cleaning = tlGetCleaning(cleanKey);
-        const isMyGap = cleaning && cleaning.staffKey === myKey;
-        const isMyDay = isMyGap && cleaning.day === dstr;
+      const cleanKey = ri + '_' + dstr;
+      const cleaning = tlGetCleaning(cleanKey);
 
-        if (isMyDay) {
+      if (!isMidStay) {
+        const isMyCleaning = cleaning && cleaning.staffKey === myKey;
+        const isTakenByOther = cleaning && !isMyCleaning;
+
+        if (isMyCleaning) {
           cls += ' tl-mine';
           cell.addEventListener('click', () => window.openTlModal(ri, room.name, cleanKey, dstr, 'mine'));
-        } else if (!cleaning && canClaim) {
+        } else if (!isTakenByOther && canClaim) {
           cls += ' tl-free';
           cell.addEventListener('click', () => window.openTlModal(ri, room.name, cleanKey, dstr, 'claim'));
-        } else if (cleaning && window.hasPermission('tl_cancel_other')) {
-          cls += ' tl-mine'; // Allows clicking to delete others
-          cell.addEventListener('click', () => window.openTlModal(ri, room.name, cleanKey, dstr, 'mine'));
-        }
-      } else if (isBoundary) {
-        let boundaryBi = departBi >= 0 ? departBi : arrivalBi;
-        let boundaryType = departBi >= 0 ? 'out' : 'in';
-        const cleanKey = tlMakeKey(ri, boundaryType, boundaryBi);
-        const cleaning = tlGetCleaning(cleanKey);
-        const isMyGap = cleaning && cleaning.staffKey === myKey;
-        const isMyDay = isMyGap && cleaning.day === dstr;
-
-        if (isMyDay) {
-          cls += ' tl-mine';
-          cell.addEventListener('click', () => window.openTlModal(ri, room.name, cleanKey, dstr, 'mine'));
-        } else if (!cleaning && canClaim) {
-          cls += ' tl-free';
-          cell.style.background = 'rgba(253,230,138,0.35)';
-          cell.addEventListener('click', () => window.openTlModal(ri, room.name, cleanKey, dstr, 'claim'));
-        } else if (cleaning && window.hasPermission('tl_cancel_other')) {
+        } else if (isTakenByOther && window.hasPermission('tl_cancel_other')) {
           cls += ' tl-mine';
           cell.addEventListener('click', () => window.openTlModal(ri, room.name, cleanKey, dstr, 'mine'));
         }
       }
+      
       cell.className = cls;
       cells.appendChild(cell);
     });
@@ -982,7 +939,8 @@ function renderTimeline() {
       const booking = (bookings[ri] || [])[bi];
       const noteTxt = booking && booking.note ? ' · ' + booking.note : '';
       const lbl2 = (si === -1 ? '← ' : '') + tlFd(fromStr) + '→' + tlFd(toStr) + (ei === -1 ? ' →' : '') + noteTxt;
-      bar.style.cssText = `position:absolute;top:9px;left:${s*cw+2}px;width:${(e-s+1)*cw-4}px;height:26px;border-radius:5px;display:flex;align-items:center;padding:0 8px;font-size:11px;font-weight:700;z-index:2;white-space:nowrap;overflow:hidden;pointer-events:none;background:${color};color:#18181b;`;
+      // Upravená pozice rezervační lišty (užší a víc nahoře), aby nepřekrývala kolečko úklidu
+      bar.style.cssText = `position:absolute;top:6px;left:${s*cw+2}px;width:${(e-s+1)*cw-4}px;height:24px;border-radius:4px;display:flex;align-items:center;padding:0 6px;font-size:11px;font-weight:700;z-index:2;white-space:nowrap;overflow:hidden;pointer-events:none;background:${color};color:#18181b;box-shadow:0 1px 2px rgba(0,0,0,0.1);`;
       bar.textContent = lbl2;
       bar.title = lbl2;
       cells.appendChild(bar);
@@ -991,46 +949,59 @@ function renderTimeline() {
     const allKeys = Object.keys(tlCleanings).filter(k => k.startsWith(ri + '_'));
     allKeys.forEach(fullKey => {
       const cleaning = tlCleanings[fullKey]; if (!cleaning) return;
-      const ci = dSt.indexOf(cleaning.day); if (ci === -1) return;
+      const dstr = fullKey.split('_')[1];
+      const ci = dSt.indexOf(dstr); if (ci === -1) return;
+      
       const isMine = cleaning.staffKey === myKey;
       let bg, fg, label;
 
       if (!canSeeNames && !isMine) {
-        bg = '#C0DD97'; fg = '#27500A'; label = '🧹 Úklid';
+        bg = '#C0DD97'; fg = '#27500A'; label = '✓';
       } else if (isMine) {
-        const col = tlStaffColorForKey(myKey); bg = col.bg; fg = col.fg; label = '🧹 Já';
+        const col = tlStaffColorForKey(myKey); bg = col.bg; fg = col.fg; label = 'Já';
       } else {
-        const initials = tlGetInitials(cleaning.staffKey);
-        const col = tlStaffColorForKey(cleaning.staffKey); bg = col.bg; fg = col.fg; label = '🧹 ' + initials;
+        label = tlGetInitials(cleaning.staffKey);
+        const col = tlStaffColorForKey(cleaning.staffKey); bg = col.bg; fg = col.fg; 
       }
+      
       const badge = document.createElement('div');
-      badge.style.cssText = `position:absolute;top:9px;left:${ci*cw+2}px;width:${cw-4}px;height:26px;border-radius:5px;display:flex;align-items:center;justify-content:center;padding:0 4px;font-size:11px;font-weight:700;z-index:3;white-space:nowrap;overflow:hidden;pointer-events:none;background:${bg};color:${fg};border:1px solid ${fg};`;
+      // Tady se tvoří ten kroužek
+      badge.style.cssText = `position:absolute;bottom:4px;left:${ci*cw + cw/2}px;transform:translateX(-50%);width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;z-index:4;pointer-events:none;background:${bg};color:${fg};border:1px solid ${fg};box-shadow:0 1px 3px rgba(0,0,0,0.2);`;
       badge.textContent = label;
       cells.appendChild(badge);
     });
     row.appendChild(cells); tb.appendChild(row);
   });
-}
+};
 
 window.openTlModal = (ri, roomName, cleanKey, dstr, type) => {
   tlPend = { ri, roomName, cleanKey, dstr, type };
   document.getElementById('tlMt').textContent = roomName;
-  const parts = cleanKey.split('_'); const keyType = parts[1];
+
+  const rbks = tlGetRoomBookings(ri);
+  const isCheckout = rbks.some(b => tlTs(b.to) === dstr);
+  const isCheckin  = rbks.some(b => tlTs(b.from) === dstr);
+
   let dayDesc = tlFd(dstr) + dstr.split('-')[0];
-  if (keyType === 'in') dayDesc += ' 🔑 Příjezd'; else if (keyType === 'out') dayDesc += ' 🚪 Odjezd';
+  if (isCheckout && isCheckin) dayDesc += ' 🚪 Odjezd i 🔑 Příjezd';
+  else if (isCheckout) dayDesc += ' 🚪 Odjezd';
+  else if (isCheckin) dayDesc += ' 🔑 Příjezd';
+  else dayDesc += ' 🧹 Prázdný den';
+
   document.getElementById('tlMs').textContent = dayDesc + (type === 'claim' ? ' — Přihlásit k úklidu' : ' — Odhlásit se');
+
   const mst = document.getElementById('tlMst'); mst.innerHTML = '';
 
   if (type === 'claim' && window.hasPermission('tl_claim')) {
     const btn = document.createElement('button'); btn.className = 'tl-mbtn confirm'; btn.textContent = '✓ Přihlásit se k úklidu';
-    btn.addEventListener('click', () => { tlSetCleaning(tlPend.cleanKey, tlMyKey(), tlPend.dstr); window.closeTlModal(); renderTimeline(); });
+    btn.addEventListener('click', () => { tlSetCleaning(tlPend.cleanKey, tlMyKey(), tlPend.dstr); window.closeTlModal(); window.renderTimeline(); });
     mst.appendChild(btn);
   } else if (type === 'mine') {
     const cleaning = tlGetCleaning(cleanKey);
     const isMine = cleaning && cleaning.staffKey === tlMyKey();
     if ((isMine && window.hasPermission('tl_cancel_own')) || (!isMine && window.hasPermission('tl_cancel_other'))) {
         const btn = document.createElement('button'); btn.className = 'tl-mbtn remove'; btn.textContent = '✕ Odhlásit z úklidu';
-        btn.addEventListener('click', () => { tlClearCleaning(tlPend.cleanKey); window.closeTlModal(); renderTimeline(); });
+        btn.addEventListener('click', () => { tlClearCleaning(tlPend.cleanKey); window.closeTlModal(); window.renderTimeline(); });
         mst.appendChild(btn);
     } else {
         mst.innerHTML = '<div style="font-size:13px; color:var(--color-text-danger); text-align:center; padding:10px;">Nemáte oprávnění mazat tento úklid.</div>';
@@ -1040,8 +1011,8 @@ window.openTlModal = (ri, roomName, cleanKey, dstr, type) => {
 };
 
 window.closeTlModal = () => { document.getElementById('tlOv').classList.remove('open'); tlPend = null; };
-window.tlChangeWeek = (d) => { tlWo += d; renderTimeline(); };
-window.addEventListener('resize', () => { if (currentUser) renderTimeline(); });
+window.tlChangeWeek = (d) => { tlWo += d; window.renderTimeline(); };
+window.addEventListener('resize', () => { if (currentUser) window.renderTimeline(); });
 
 /* =========================================================================
  * SPRÁVA OPRÁVNĚNÍ ROLÍ
@@ -1091,7 +1062,7 @@ window.saveRolePermissions = () => {
 };
 
 /* =========================================================================
- * PŮVODNÍ FUNKCE (Refaktorované na hasPermission)
+ * PŮVODNÍ FUNKCE
  * ========================================================================= */
 window.toggleSettingsMenu = (event) => { event.stopPropagation(); document.getElementById('settingsDropdown').classList.toggle('show'); };
 window.addEventListener('click', function(e) { const dropdown = document.getElementById('settingsDropdown'); if (dropdown && dropdown.classList.contains('show') && !e.target.closest('.settings-menu-wrap')) { dropdown.classList.remove('show'); } });
@@ -1317,6 +1288,9 @@ window.resetShiftData = () => {
 window.renderStaffTasks = () => {
   const wrap = document.getElementById('staffTasksWrap'); 
   const list = document.getElementById('staffTasksList');
+  if (!window.hasPermission('task_view')) { wrap.style.display = 'none'; return; }
+  
+  wrap.style.display = 'block'; 
   if (!staffTasks.length) { list.innerHTML = '<div style="font-size:13px; color:var(--color-text-secondary); margin-bottom:12px;">Aktuálně nejsou žádné úkoly.</div>'; return; }
   
   const canEdit = window.hasPermission('task_edit');
@@ -1539,7 +1513,7 @@ window.saveBooking = () => {
   if(!bookings[curRoom]) bookings[curRoom] = []; const note = document.getElementById('bBookingNote').value.trim();
   if (editBookingIdx > -1) { bookings[curRoom][editBookingIdx].from = selStart; bookings[curRoom][editBookingIdx].to = selEnd; bookings[curRoom][editBookingIdx].note = note;
   } else { bookings[curRoom].push({ from: selStart, to: selEnd, note: note, dirtyTriggered: false, addedAt: Date.now() }); }
-  window.saveToFirebase(); window.closeBookingModal(); window.renderRoomCalendar(); window.renderBookings(); renderTimeline();
+  window.saveToFirebase(); window.closeBookingModal(); window.renderRoomCalendar(); window.renderBookings(); window.renderTimeline();
 };
 window.renderBookings = () => {
   const list = bookings[curRoom] || []; const el = document.getElementById('bookingsList');
@@ -1554,7 +1528,7 @@ window.renderBookings = () => {
 function fmt(d) { const p = d.split('-'); return p[2] + '.' + p[1] + '.' + p[0]; }
 window.delBooking = (i) => {
   if(!confirm('Opravdu smazat tuto rezervaci?')) return;
-  bookings[curRoom].splice(i, 1); window.saveToFirebase(); window.renderRoomCalendar(); window.renderBookings(); renderTimeline();
+  bookings[curRoom].splice(i, 1); window.saveToFirebase(); window.renderRoomCalendar(); window.renderBookings(); window.renderTimeline();
 };
 window.saveNote = () => {
   notes[curRoom] = document.getElementById('roomNotes').value; window.saveToFirebase();
@@ -1594,6 +1568,7 @@ if (document.getElementById('modalBg')) document.getElementById('modalBg').addEv
 if (document.getElementById('editBg')) document.getElementById('editBg').addEventListener('click', function(e) { if(e.target === this) window.closeEdit(); });
 if (document.getElementById('usersAdminBg')) document.getElementById('usersAdminBg').addEventListener('click', function(e) { if(e.target === this) window.closeUsersAdmin(); });
 if (document.getElementById('statsModalBg')) document.getElementById('statsModalBg').addEventListener('click', function(e) { if(e.target === this) window.closeStatsModal(); });
+if (document.getElementById('rolesAdminBg')) document.getElementById('rolesAdminBg').addEventListener('click', function(e) { if(e.target === this) window.closeRolesAdmin(); });
 </script>
 </body>
 </html>
